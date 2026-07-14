@@ -1,0 +1,511 @@
+// Blankwet Academy — Database Schema
+// PostgreSQL (Supabase) + Prisma ORM
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DATABASE_DIRECT_URL") // For migrations
+}
+
+// ─── USER & AUTH ─────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String?   // Hashed (bcrypt), null for OAuth users
+  name          String?
+  avatar        String?   // URL to avatar image
+  
+  // Profile
+  birthYear     Int?      // For age verification
+  gender        Gender?
+  bio           String?   @db.Text
+  
+  // Preferences
+  preferences   Json?     // { newsletter: boolean, privateMode: boolean }
+  
+  // Timestamps
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  accounts      Account[]
+  sessions      Session[]
+  subscriptions Subscription[]
+  progress      Progress[]
+  bookmarks     Bookmark[]
+  reviews       Review[]
+  payments      Payment[]
+  
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("sessions")
+}
+
+enum Gender {
+  FEMALE
+  MALE
+  NON_BINARY
+  PREFER_NOT_TO_SAY
+}
+
+// ─── SUBSCRIPTION & BILLING ─────────────────────────────────
+
+model Subscription {
+  id                String             @id @default(cuid())
+  userId            String
+  stripeCustomerId  String?
+  stripeSubscriptionId String?         @unique
+  stripePriceId     String?
+  
+  plan              SubscriptionPlan
+  status            SubscriptionStatus
+  
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  
+  cancelAtPeriodEnd Boolean           @default(false)
+  canceledAt        DateTime?
+  
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payments          Payment[]
+  
+  @@map("subscriptions")
+}
+
+enum SubscriptionPlan {
+  FREE
+  MONTHLY
+  YEARLY
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  PAST_DUE
+  UNPAID
+  TRIALING
+}
+
+model Payment {
+  id                String   @id @default(cuid())
+  userId            String
+  subscriptionId    String?
+  
+  stripePaymentIntentId String? @unique
+  amount            Int      // In cents
+  currency          String   @default("bgn")
+  status            PaymentStatus
+  
+  description       String?
+  
+  createdAt         DateTime @default(now())
+  
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription      Subscription? @relation(fields: [subscriptionId], references: [id])
+  
+  @@map("payments")
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+// ─── COURSES ─────────────────────────────────────────────────
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String    @unique // "Сексуално здраве", "Комуникация", etc.
+  slug        String    @unique
+  description String?   @db.Text
+  icon        String?   // Lucide icon name
+  color       String?   // Category accent color
+  
+  sortOrder   Int       @default(0)
+  
+  createdAt   DateTime  @default(now())
+  
+  courses     Course[]
+  
+  @@map("categories")
+}
+
+model Course {
+  id            String    @id @default(cuid())
+  
+  // Basic Info
+  title         String
+  slug          String    @unique
+  description   String    @db.Text
+  shortDesc     String?   @db.VarChar(200) // For cards
+  
+  // Media
+  thumbnail     String    // Bunny Stream thumbnail URL
+  trailerVideoId String?  // Bunny Stream video GUID
+  
+  // Categorization
+  categoryId    String
+  level         CourseLevel
+  type          CourseType
+  
+  // Pricing
+  price         Int?      // In cents, null = subscription only
+  isFree        Boolean   @default(false)
+  
+  // Content
+  duration      Int       // Total minutes
+  moduleCount   Int       @default(0)
+  lessonCount   Int       @default(0)
+  
+  // Meta
+  published     Boolean   @default(false)
+  publishedAt   DateTime?
+  featured      Boolean   @default(false)
+  featuredOrder Int?      // For homepage ordering
+  
+  // Stats
+  enrollmentCount Int     @default(0)
+  avgRating     Float?    @db.Real
+  reviewCount   Int       @default(0)
+  
+  // SEO
+  metaTitle     String?
+  metaDesc      String?
+  
+  // Timestamps
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  category      Category  @relation(fields: [categoryId], references: [id])
+  modules       Module[]
+  instructors   CourseInstructor[]
+  reviews       Review[]
+  progress      Progress[]
+  bookmarks     Bookmark[]
+  
+  @@map("courses")
+}
+
+enum CourseLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  ALL_LEVELS
+}
+
+enum CourseType {
+  VIDEO      // Video course
+  ARTICLE    // Written content
+  PODCAST    // Audio content
+  MIXED      // Combination
+}
+
+model Module {
+  id          String    @id @default(cuid())
+  courseId    String
+  
+  title       String
+  description String?   @db.Text
+  sortOrder   Int
+  
+  // Free preview: first lesson of first module is free
+  isFree      Boolean   @default(false)
+  
+  createdAt   DateTime  @default(now())
+  
+  course      Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons     Lesson[]
+  
+  @@map("modules")
+}
+
+model Lesson {
+  id            String    @id @default(cuid())
+  moduleId      String
+  
+  title         String
+  description   String?   @db.Text
+  
+  // Video
+  videoId       String?   // Bunny Stream video GUID
+  duration      Int       // Minutes
+  
+  // Content (for article/audio lessons)
+  content       String?   @db.Text // HTML/Markdown content
+  
+  // Attachments
+  attachments   Json?     // [{ name, url, type }]
+  
+  // Status
+  isPublished   Boolean   @default(true)
+  sortOrder     Int
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  module        Module    @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  progressItems Progress[]
+  
+  @@map("lessons")
+}
+
+// ─── INSTRUCTORS ─────────────────────────────────────────────
+
+model Instructor {
+  id          String    @id @default(cuid())
+  
+  name        String
+  slug        String    @unique
+  avatar      String?   // Image URL
+  title       String    // e.g., "Сексолог", "Психолог"
+  bio         String    @db.Text
+  credentials String?   @db.Text // Certifications
+  
+  // Social
+  website     String?
+  instagram   String?
+  
+  // Status
+  isActive    Boolean   @default(true)
+  featured    Boolean   @default(false)
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  courses     CourseInstructor[]
+  
+  @@map("instructors")
+}
+
+model CourseInstructor {
+  courseId      String
+  instructorId  String
+  isPrimary     Boolean   @default(false) // Main instructor
+  
+  course        Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  instructor    Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  
+  @@id([courseId, instructorId])
+  @@map("course_instructors")
+}
+
+// ─── USER PROGRESS ───────────────────────────────────────────
+
+model Progress {
+  id          String    @id @default(cuid())
+  
+  userId      String
+  courseId    String
+  lessonId    String?
+  
+  // Progress state
+  status      ProgressStatus @default(NOT_STARTED)
+  percentComplete Int       @default(0) // 0-100
+  
+  // Video position (seconds)
+  videoPosition Int?      @default(0)
+  
+  // Timestamps
+  startedAt   DateTime?
+  completedAt DateTime?
+  lastWatchedAt DateTime?
+  
+  updatedAt   DateTime  @updatedAt
+  
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course      Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lesson      Lesson?   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, lessonId])
+  @@map("progress")
+}
+
+enum ProgressStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+// ─── BOOKMARKS ───────────────────────────────────────────────
+
+model Bookmark {
+  id        String   @id @default(cuid())
+  userId    String
+  courseId  String
+  
+  createdAt DateTime @default(now())
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, courseId])
+  @@map("bookmarks")
+}
+
+// ─── REVIEWS ─────────────────────────────────────────────────
+
+model Review {
+  id        String   @id @default(cuid())
+  
+  userId    String
+  courseId  String
+  
+  rating    Int      // 1-5
+  comment   String?  @db.Text
+  
+  // Moderation
+  isApproved Boolean @default(true)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, courseId]) // One review per user per course
+  @@map("reviews")
+}
+
+// ─── BLOG ────────────────────────────────────────────────────
+
+model BlogPost {
+  id          String    @id @default(cuid())
+  
+  title       String
+  slug        String    @unique
+  excerpt     String?   @db.VarChar(300)
+  content     String    @db.Text // HTML content
+  
+  // Media
+  coverImage  String?   // Image URL
+  
+  // Meta
+  category    String    // "Сексуално здраве", "Лайфстайл", etc.
+  tags        String[]  // Array of tags
+  
+  // Author
+  authorName  String
+  authorAvatar String?
+  
+  // SEO
+  metaTitle   String?
+  metaDesc    String?
+  
+  // Status
+  published   Boolean   @default(false)
+  publishedAt DateTime?
+  featured    Boolean   @default(false)
+  
+  // Stats
+  viewCount   Int       @default(0)
+  readTime    Int       // Minutes
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@map("blog_posts")
+}
+
+// ─── FAQ ─────────────────────────────────────────────────────
+
+model FAQ {
+  id        String   @id @default(cuid())
+  
+  question  String
+  answer    String   @db.Text
+  category  String   // "general", "billing", "technical", "privacy"
+  
+  sortOrder Int      @default(0)
+  
+  createdAt DateTime @default(now())
+  
+  @@map("faqs")
+}
+
+// ─── NEWSLETTER SUBSCRIBERS ──────────────────────────────────
+
+model NewsletterSubscriber {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  isActive  Boolean  @default(true)
+  
+  createdAt DateTime @default(now())
+  
+  @@map("newsletter_subscribers")
+}
+
+// ─── TESTIMONIALS ────────────────────────────────────────────
+
+model Testimonial {
+  id        String   @id @default(cuid())
+  
+  name      String   // First name only (anonymized)
+  avatar    String?  // Illustrated avatar or null
+  rating    Int      // 1-5
+  comment   String   @db.Text
+  courseId  String?  // Related course (optional)
+  
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  
+  createdAt DateTime @default(now())
+  
+  @@map("testimonials")
+}
+
+// ─── CONTACT MESSAGES ────────────────────────────────────────
+
+model ContactMessage {
+  id        String   @id @default(cuid())
+  
+  name      String
+  email     String
+  subject   String
+  message   String   @db.Text
+  
+  isRead    Boolean  @default(false)
+  
+  createdAt DateTime @default(now())
+  
+  @@map("contact_messages")
+}
