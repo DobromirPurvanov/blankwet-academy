@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 260 11% 18%;
+    --card: 0 0% 100%;
+    --card-foreground: 260 11% 18%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 260 11% 18%;
+    --primary: 260 24% 46%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 260 24% 96%;
+    --secondary-foreground: 260 24% 46%;
+    --muted: 260 20% 95%;
+    --muted-foreground: 260 8% 52%;
+    --accent: 40 80% 70%;
+    --accent-foreground: 260 11% 18%;
+    --destructive: 0 40% 63%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 260 18% 91%;
+    --input: 260 18% 91%;
+    --ring: 260 24% 46%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 260 20% 13%;
+    --foreground: 260 20% 95%;
+    --card: 260 15% 18%;
+    --card-foreground: 260 20% 95%;
+    --popover: 260 15% 18%;
+    --popover-foreground: 260 20% 95%;
+    --primary: 260 30% 65%;
+    --primary-foreground: 260 11% 18%;
+    --secondary: 260 15% 25%;
+    --secondary-foreground: 260 20% 95%;
+    --muted: 260 15% 25%;
+    --muted-foreground: 260 10% 60%;
+    --accent: 40 80% 75%;
+    --accent-foreground: 260 11% 18%;
+    --destructive: 0 40% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 260 15% 28%;
+    --input: 260 15% 28%;
+    --ring: 260 30% 65%;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  html { scroll-behavior: smooth; }
+  body { @apply bg-white text-bw-text font-body antialiased; font-feature-settings: "kern" 1, "liga" 1; }
+  h1, h2, h3, h4, h5, h6 { @apply font-heading font-semibold tracking-tight; }
+  h1 { @apply text-4xl md:text-5xl lg:text-6xl leading-tight; }
+  h2 { @apply text-3xl md:text-4xl lg:text-5xl leading-tight; }
+  h3 { @apply text-2xl md:text-3xl leading-snug; }
+  h4 { @apply text-xl md:text-2xl leading-snug; }
+  h5 { @apply text-lg md:text-xl leading-relaxed; }
+  h6 { @apply text-base md:text-lg font-semibold; }
+}
+
+@layer components {
+  .btn-primary { @apply inline-flex items-center justify-center px-7 py-3.5 bg-gold-400 text-bw-text font-semibold text-sm rounded-full transition-all duration-200 hover:bg-gold-500 hover:scale-[1.02] hover:shadow-gold active:scale-[0.98]; }
+  .btn-secondary { @apply inline-flex items-center justify-center px-7 py-3.5 bg-transparent border-[1.5px] border-gold-400 text-gold-600 font-semibold text-sm rounded-full transition-all duration-200 hover:bg-gold-100 hover:border-gold-500; }
+  .btn-ghost { @apply inline-flex items-center justify-center px-6 py-3 bg-transparent text-purple-700 font-medium text-sm rounded-full transition-all duration-200 hover:bg-purple-100; }
+  .btn-purple { @apply inline-flex items-center justify-center px-7 py-3.5 bg-purple-700 text-white font-semibold text-sm rounded-full transition-all duration-200 hover:bg-purple-800 hover:scale-[1.02] active:scale-[0.98]; }
+  .card-elevated { @apply bg-white rounded-2xl shadow-sm border border-purple-200/50 transition-all duration-200 hover:-translate-y-1 hover:shadow-md; }
+  .section-padding { @apply py-16 md:py-20 lg:py-24; }
+  .container-main { @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12; }
+  .text-display { @apply font-heading text-5xl md:text-6xl lg:text-7xl font-semibold leading-[1.05] tracking-tight; }
+  .text-overline { @apply text-[11px] font-semibold uppercase tracking-[0.1em]; }
+  .gradient-hero { background: linear-gradient(135deg, #5A4D80 0%, #8B7BB5 100%); }
+  .gradient-newsletter { background: linear-gradient(180deg, #5A4D80 0%, #B8AFC8 100%); }
+  .gradient-gold { background: linear-gradient(135deg, #F0C675 0%, #F5D99A 100%); }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+}
+
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+}
